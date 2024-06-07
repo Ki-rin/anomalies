@@ -12,7 +12,7 @@ def get_llm_response(prompt):
     response = openai.Completion.create(
       engine="text-davinci-003",
       prompt=prompt,
-      max_tokens=200,
+      max_tokens=150,
       n=1,
       stop=None,
       temperature=0.5,
@@ -20,28 +20,32 @@ def get_llm_response(prompt):
     return response.choices[0].text.strip()
 
 # Define a function to check for anomalies using LLM
-def check_anomalies_in_chunk(chunk):
+def check_anomalies_in_window(window):
+    window_data = window.to_string(index=False)
+    prompt = (f"Identify any anomalies or inconsistencies in the following corporate loan data rows:\n\n"
+              f"{window_data}\n\n"
+              "If there are anomalies, respond with the row number(s) that have anomalies; otherwise, respond 'No anomalies'.")
+    response = get_llm_response(prompt)
+    return response
+
+# Define the sliding window function
+def sliding_window_anomaly_detection(df, window_size=5):
     anomalies = []
-    for index, row in chunk.iterrows():
-        row_data = row.to_string()
-        prompt = f"Identify any anomalies in the following corporate loan data row:\n{row_data}\nIf there is an anomaly, respond 'Anomaly'; otherwise, respond 'Normal'."
-        response = get_llm_response(prompt)
-        if response.lower() == 'anomaly':
-            anomalies.append(index)
+    for start in range(len(df) - window_size + 1):
+        window = df.iloc[start:start + window_size]
+        response = check_anomalies_in_window(window)
+        if response.lower() != 'no anomalies':
+            # Extract row numbers from the response
+            anomaly_rows = [int(num.strip()) for num in response.split() if num.isdigit()]
+            anomalies.extend(window.iloc[anomaly_rows].index.tolist())
     return anomalies
 
-# Chunk the dataset
-chunk_size = 100  # Adjust chunk size as needed
-chunks = [df[i:i + chunk_size] for i in range(0, df.shape[0], chunk_size)]
-
-# Iterate through the chunks and identify anomalies
-all_anomalies = []
-for chunk in chunks:
-    anomalies_in_chunk = check_anomalies_in_chunk(chunk)
-    all_anomalies.extend(anomalies_in_chunk)
+# Run the sliding window anomaly detection
+window_size = 5  # Adjust window size as needed
+anomalies_indices = sliding_window_anomaly_detection(df, window_size=window_size)
 
 # Extract the anomalous rows
-anomalous_rows = df.iloc[all_anomalies]
+anomalous_rows = df.loc[anomalies_indices]
 print("Anomalous Rows detected by LLM:\n", anomalous_rows)
 
 # Save the anomalous rows to a CSV file
