@@ -10,12 +10,12 @@ openai.api_key = 'your-api-key'
 # Define a function to interact with the OpenAI API
 def get_llm_response(prompt):
     response = openai.Completion.create(
-      engine="text-davinci-003",
-      prompt=prompt,
-      max_tokens=200,
-      n=1,
-      stop=None,
-      temperature=0.5,
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=200,
+        n=1,
+        stop=None,
+        temperature=0.5,
     )
     return response.choices[0].text.strip()
 
@@ -26,6 +26,7 @@ def check_anomalies_in_window(window, window_start_index):
               f"{window_data}\n\n"
               "If there are anomalies, respond with the row number(s) and explanation for each anomaly; otherwise, respond 'No anomalies'.")
     response = get_llm_response(prompt)
+    print(f"Prompt:\n{prompt}\nResponse:\n{response}\n")  # Debugging output
     if 'No anomalies' in response:
         return []
     try:
@@ -37,8 +38,8 @@ def check_anomalies_in_window(window, window_start_index):
                 parts = line.split(':')
                 row_number = int(parts[0].strip().split()[-1])  # Extract row number
                 explanation = parts[1].strip()  # Extract explanation
-                original_index = window_start_index + row_number
                 if 0 <= row_number < len(window):
+                    original_index = window.index[row_number]
                     anomalies.append((original_index, explanation))
         return anomalies
     except Exception as e:
