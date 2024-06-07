@@ -1,0 +1,48 @@
+import pandas as pd
+import openai
+
+# Load the dataset
+df = pd.read_csv('corporate_loans.csv')
+
+# Set up your OpenAI API key
+openai.api_key = 'your-api-key'
+
+# Define a function to interact with the OpenAI API
+def get_llm_response(prompt):
+    response = openai.Completion.create(
+      engine="text-davinci-003",
+      prompt=prompt,
+      max_tokens=200,
+      n=1,
+      stop=None,
+      temperature=0.5,
+    )
+    return response.choices[0].text.strip()
+
+# Define a function to check for anomalies using LLM
+def check_anomalies_in_chunk(chunk):
+    anomalies = []
+    for index, row in chunk.iterrows():
+        row_data = row.to_string()
+        prompt = f"Identify any anomalies in the following corporate loan data row:\n{row_data}\nIf there is an anomaly, respond 'Anomaly'; otherwise, respond 'Normal'."
+        response = get_llm_response(prompt)
+        if response.lower() == 'anomaly':
+            anomalies.append(index)
+    return anomalies
+
+# Chunk the dataset
+chunk_size = 100  # Adjust chunk size as needed
+chunks = [df[i:i + chunk_size] for i in range(0, df.shape[0], chunk_size)]
+
+# Iterate through the chunks and identify anomalies
+all_anomalies = []
+for chunk in chunks:
+    anomalies_in_chunk = check_anomalies_in_chunk(chunk)
+    all_anomalies.extend(anomalies_in_chunk)
+
+# Extract the anomalous rows
+anomalous_rows = df.iloc[all_anomalies]
+print("Anomalous Rows detected by LLM:\n", anomalous_rows)
+
+# Save the anomalous rows to a CSV file
+anomalous_rows.to_csv('anomalous_rows_report.csv', index=False)
