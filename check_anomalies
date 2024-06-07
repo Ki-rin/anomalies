@@ -24,23 +24,28 @@ def check_anomalies_in_window(window, window_start_index):
     window_data = window.to_string(index=False)
     prompt = (f"Identify any anomalies or inconsistencies in the following corporate loan data rows:\n\n"
               f"{window_data}\n\n"
-              "If there are anomalies, respond with the row number(s) and explanation for each anomaly in the format 'Row X: Explanation'; otherwise, respond 'No anomalies'.")
+              "If there are anomalies, respond with the row number(s) and explanation for each anomaly in the format 'Row X: Explanation'."
+              " List multiple anomalies on separate lines.")
     response = get_llm_response(prompt)
     print(f"Prompt:\n{prompt}\nResponse:\n{response}\n")  # Debugging output
+    
     if 'No anomalies' in response:
         return []
+    
     try:
         # Process the response to extract indices and explanations
-        anomaly_lines = response.split('\n')
+        anomaly_lines = response.split('Row')
         anomalies = []
         for line in anomaly_lines:
-            if 'Row' in line and ':' in line:
-                parts = line.split(':')
-                row_number = int(parts[0].strip().split()[1])  # Extract row number
-                explanation = parts[1].strip()  # Extract explanation
+            if ':' in line:
+                parts = line.split(':', 1)
+                row_number = int(parts[0].strip())
+                explanation = parts[1].strip()
+                print(f"Extracted row number: {row_number}, explanation: {explanation}")  # Debugging output
                 if 0 <= row_number < len(window):
                     original_index = window.index[row_number]
                     anomalies.append((original_index, explanation))
+                    print(f"Appended anomaly: {original_index}, explanation: {explanation}")  # Debugging output
         return anomalies
     except Exception as e:
         print(f"Error processing response: {response}\nException: {e}")
@@ -52,22 +57,26 @@ def sliding_window_anomaly_detection(df, window_size=5):
     for start in range(len(df) - window_size + 1):
         window = df.iloc[start:start + window_size]
         window_start_index = window.index[0]
+        print(f"Processing window starting at index: {window_start_index}")  # Debugging output
         response_anomalies = check_anomalies_in_window(window, window_start_index)
         anomalies.extend(response_anomalies)
+        print(f"Updated anomalies list: {anomalies}")  # Debugging output
     return anomalies
 
 # Run the sliding window anomaly detection
 window_size = 5  # Adjust window size as needed
 anomalies_with_explanations = sliding_window_anomaly_detection(df, window_size=window_size)
+print(f"Final anomalies with explanations: {anomalies_with_explanations}")  # Debugging output
 
 # Remove duplicates based on indices
 unique_anomalies = {idx: expl for idx, expl in anomalies_with_explanations}.items()
+print(f"Unique anomalies after removing duplicates: {unique_anomalies}")  # Debugging output
 
 # Extract the anomalous rows and explanations
 anomalous_rows = pd.DataFrame([(idx, *df.loc[idx].values, expl) for idx, expl in unique_anomalies],
                               columns=list(df.columns) + ['Anomaly Explanation'])
-
-print("Anomalous Rows detected by LLM:\n", anomalous_rows)
+print(f"Anomalous Rows DataFrame:\n{anomalous_rows}")  # Debugging output
 
 # Save the anomalous rows to a CSV file
 anomalous_rows.to_csv('anomalous_rows_report.csv', index=False)
+print("Anomalous rows saved to anomalous_rows_report.csv")  # Debugging output
