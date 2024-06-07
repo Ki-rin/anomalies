@@ -24,7 +24,7 @@ def check_anomalies_in_window(window, window_start_index):
     window_data = window.to_string(index=False)
     prompt = (f"Identify any anomalies or inconsistencies in the following corporate loan data rows:\n\n"
               f"{window_data}\n\n"
-              "If there are anomalies, respond with the row number(s) and explanation for each anomaly; otherwise, respond 'No anomalies'.")
+              "If there are anomalies, respond with the row number(s) and explanation for each anomaly in the format 'Row X: Explanation'; otherwise, respond 'No anomalies'.")
     response = get_llm_response(prompt)
     print(f"Prompt:\n{prompt}\nResponse:\n{response}\n")  # Debugging output
     if 'No anomalies' in response:
@@ -34,9 +34,9 @@ def check_anomalies_in_window(window, window_start_index):
         anomaly_lines = response.split('\n')
         anomalies = []
         for line in anomaly_lines:
-            if 'row' in line.lower() and ':' in line:
+            if 'Row' in line and ':' in line:
                 parts = line.split(':')
-                row_number = int(parts[0].strip().split()[-1])  # Extract row number
+                row_number = int(parts[0].strip().split()[1])  # Extract row number
                 explanation = parts[1].strip()  # Extract explanation
                 if 0 <= row_number < len(window):
                     original_index = window.index[row_number]
